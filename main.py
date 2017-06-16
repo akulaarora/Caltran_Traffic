@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
-
 import sys
 from ftplib import FTP #for working with FTP server
 import os.path #error checking if file was downloaded
 import csv
+#from influxdb import InfluxDBClient TODO: Currently unusable as it requires installation.
 
 """
 Currently unnecessary:
@@ -18,7 +17,6 @@ def main(argv):
     filename = "30sec_latest.txt"
     IDs = ["1108498", "1108719", "1123087", "1123086", "1108452", "1118544", "1125911", "1123072", "1123081", "1123064"]
     #VDS IDs have been placed in code for ease of use; however, code can be altered to have IDs passed as arguments or via file.
-    #TODO: 1108719 is giving values of 0. Change this?
 
     #Establish FTP connection and get necessary file
     ftp = FTP("pems.dot.ca.gov")
@@ -35,11 +33,11 @@ def main(argv):
     #Open raw data file and get data
     data_file = open(filename, "r")
     datareader = csv.reader(data_file) #Using CSV API to read file
-    timestamp = next(datareader) #TODO: Format based upon timeseries format
+    timestamp = format_timestamp(''.join(next(datareader))) #Gets time from file as a list, which is then converted to a string, and manipulated to match timeseries for format
 
     # Get data (flow and occupancy) from file. TODO:  Get metadata from XML and POST to influxdb. Use REST API/influxDB-python client?
     for ID in IDs:
-        print(get_data(datareader, ID)) #Temporarily printing values
+        print(get_data(datareader, ID))
         data_file.seek(0) #This resets datareader back to beginning of file
 
     #Close connection with data file
@@ -47,18 +45,37 @@ def main(argv):
 
 
 def get_data(rows, VDS_ID):
-    #Traverse until correct line is found. TODO:Is this too inefficient?
+    #Traverse until correct line is found.
     for row in rows:
         if VDS_ID in row: #checks to see if row is correct
             #Returns flow and occupancy values
             flow = row[3]
             occupancy = row[4]
-            return flow, occupancy
-    #TODO: This currently returns flow and occupancy values for loop 1. Unsure if loop 10 matters (only available for mainline VDSs).
+
+    #Returns values if they were found
+    if flow and occupancy:
+        return flow, occupancy
+    print("Data for %s could not be found" % (VDS_ID)) #TODO: Put in log file
+
+
+def format_timestamp(timestamp):
+    """
+    Format provided: 06/15/2017 17:52:30
+    Format wanted: 2017-06-15T17:52:30Z
+    """
+    #Break string into pieces for concatenating
+    hourminsec = timestamp[11:]
+    month = timestamp[0:2]
+    day = timestamp[3:5]
+    year = timestamp[6:10]
+
+    #Concatenate strings into timeseries format and return final formatted string
+    formatted = "%s-%s-%sT%sZ" % (year, month, day, hourminsec)
+    return formatted
 
 
 #Executes from here
 if __name__ == "__main__":
-    #TODO: Add check if user entered arguments for username and password
+    #TODO: Add check if user entered arguments for username and password. Put in log file
     main(sys.argv[1:])
 
