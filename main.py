@@ -2,14 +2,9 @@ import sys
 from ftplib import FTP #for working with FTP server
 import os.path #error checking if file was downloaded
 import csv
-#from influxdb import InfluxDBClient TODO: Currently unusable as it requires installation.
-
-"""
-Currently unnecessary:
-import xml.etree.ElementTree as ElementTree #For working with metadata
-metadata = ET.parse(vds_config.xml)
-root = 
-"""
+import xml.etree.ElementTree as ET #For reading XML file for metadata
+from collections import namedtuple #For returning the metadata from the XML (get_metadata() function) to the write_influxdb() function
+from influxdb import InfluxDBClient #For writing to influxdb database
 
 
 def main(argv):
@@ -19,26 +14,32 @@ def main(argv):
     #VDS IDs have been placed in code for ease of use; however, code can be altered to have IDs passed as arguments or via file.
 
     #Establish FTP connection and get necessary file
-    ftp = FTP("pems.dot.ca.gov")
-    ftp.login(argv[0], argv[1])
-    ftp.cwd("D11/Data/30sec")  # This is to work with District 11's 30 second raw data
-    ftp.retrbinary("RETR " + filename, open(filename, "wb").write)
-    ftp.quit()
-
-    #Checks if file was successfully received from. If not, breaks out of program.
-    if not os.path.isfile(filename):
-        print("Could not successfully get file from FTP server") #TODO: This may want to be altered to put errors in a log file
-        sys.exit()
+    try:
+        ftp = FTP("pems.dot.ca.gov")
+        ftp.login(argv[0], argv[1])
+        ftp.cwd("D11/Data/30sec")  # This is to work with District 11's 30 second raw data
+        ftp.retrbinary("RETR " + filename, open(filename, "wb").write)
+        ftp.quit()
+    except:
+        error_log("FTP Error. Please make sure you entered the username and password for the FTP server as arguments and are able to connect to the server. Exited script")
+        sys.exit(1)
 
     #Open raw data file and get data
     data_file = open(filename, "r")
     datareader = csv.reader(data_file) #Using CSV API to read file
-    timestamp = format_timestamp(''.join(next(datareader))) #Gets time from file as a list, which is then converted to a string, and manipulated to match timeseries for format
+    time = format_timestamp(''.join(next(datareader))) #Gets time from file in a list, which is then converted to a string, and manipulated to match timeseries for format
 
-    # Get data (flow and occupancy) from file. TODO:  Get metadata from XML and POST to influxdb. Use REST API/influxDB-python client?
+    # Get data (flow and occupancy) from file.
     for ID in IDs:
-        print(get_data(datareader, ID))
-        data_file.seek(0) #This resets datareader back to beginning of file
+        try:
+            flow_data, occupancy_data = get_data(datareader, ID)
+        except:
+            error_log("Data for %s could not be found. Will not be written to database." % (ID))
+
+        if flow_data and occupancy_data: #Checks to see if data was indeed received
+            write_influxdb(ID, flow_data, occupancy_data, time) #Passes raw flow and occupancy values to write_influxdb() function (along with time) for writing to database.
+
+        data_file.seek(0) #This resets datareader back to beginning of file for next ID
 
     #Close connection with data file
     data_file.close()
@@ -48,14 +49,13 @@ def get_data(rows, VDS_ID):
     #Traverse until correct line is found.
     for row in rows:
         if VDS_ID in row: #checks to see if row is correct
-            #Returns flow and occupancy values
-            flow = row[3]
-            occupancy = row[4]
+            #Gets flow and occupancy values. Typecasted for use when writing data.
+            flow = float(row[3])
+            occupancy = float(row[4])
 
-    #Returns values if they were found
-    if flow and occupancy:
-        return flow, occupancy
-    print("Data for %s could not be found" % (VDS_ID)) #TODO: Put in log file
+    #Returns values as tuple
+    return flow, occupancy
+
 
 
 def format_timestamp(timestamp):
@@ -74,8 +74,69 @@ def format_timestamp(timestamp):
     return formatted
 
 
+def write_influxdb(VDS_ID, flow, occupancy, timestamp):
+    #Get metadata for writing to database as tags (metadata is returned in a named tuple)
+    metadata = get_metadata(VDS_ID)
+
+    #Write flow and occupancy measurements to database
+    write_point("flow", VDS_ID, metadata, flow, timestamp)
+    write_point("occupancy", VDS_ID, metadata, occupancy, timestamp)
+
+
+def get_metadata(identifier):
+    #Declare metadata named tuple
+    metadata = namedtuple("metadata", "name type county_id city_id freeway_id freeway_dir lanes cal_pm abs_pm latitude longitude last_modified")
+
+    #Parse XML file for metadata
+    tree = ET.parse("vds_config.xml")
+    root = tree.getroot()
+    stations = root[11][1] #Gets detector_stations child tag in XML file for District 11
+
+    #Finds correct VDS based upon identifier and stores to
+    for vds in stations.findall('vds'):
+        if identifier == vds.get('id'):
+            return (metadata(vds.get("name"), vds.get("type"), vds.get("county_id"), vds.get("city_id"), vds.get("freeway_id"), vds.get("freeway_dir"), vds.get("lanes"), vds.get("cal_pm"), vds.get("abs_pm"), vds.get("latitude"), vds.get("longitude"), vds.get("last_modified"))) #Return metadata as named tuple
+
+
+def write_point(data_type, identifier, metadata_tags, value, timeseries):
+    # http://influxdb-python.readthedocs.io/en/latest/include-readme.html#documentation
+    # Creating json body for measurement.
+
+    data_point = [
+        {
+            "measurement": data_type,
+            "tags": {
+                "ID": identifier,
+                "name": metadata_tags.name,
+                "type": metadata_tags.type,
+                "county_id": metadata_tags.county_id,
+                "city_id": metadata_tags.city_id,
+                "freeway_id": metadata_tags.freeway_id,
+                "freeway_dir": metadata_tags.freeway_dir,
+                "lanes": metadata_tags.lanes,
+                "cal_pm": metadata_tags.cal_pm,
+                "abs_pm": metadata_tags.abs_pm,
+                "latitude": metadata_tags.latitude,
+                "longitude": metadata_tags.longitude,
+                "last_modified": metadata_tags.last_modified
+            },
+            "time": timeseries,
+            "fields": {
+                "value": value
+            }
+        }
+    ]
+
+    # Write to database
+    client = InfluxDBClient('localhost', 8086, 'root', 'root', 'caltran_traffic')  # caltran_traffic is name of database
+    client.write_points(data_point)
+
+
+def error_log(error):
+    with open("error.log", "a") as file:
+        file.write(error)
+
 #Executes from here
 if __name__ == "__main__":
-    #TODO: Add check if user entered arguments for username and password. Put in log file
     main(sys.argv[1:])
 
