@@ -3,7 +3,6 @@ from ftplib import FTP #for working with FTP server
 import arrow # For formatting the time format
 import csv
 import xml.etree.ElementTree as ET #For reading XML file for metadata
-from collections import namedtuple #For returning the metadata from the XML (get_metadata() function) to the write_influxdb() function
 from influxdb import InfluxDBClient #For writing to influxdb database
 
 
@@ -35,9 +34,10 @@ def main(argv):
         try:
             flow_data, occupancy_data = get_data(datareader, ID)
         except:
+            flow_data = occupancy_data = -99 # Junk values to prove data was not received
             error_log("Data for %s could not be found. Will not be written to database." % (ID))
 
-        if flow_data and occupancy_data: #Checks to see if data was indeed received
+        if flow_data != -99 or occupancy_data != -99: #Checks to see if data was indeed received
             write_influxdb(ID, flow_data, occupancy_data, iso_timestamp.timestamp) #Passes raw flow and occupancy values to write_influxdb() function (along with timestamp in int form) for writing to database.
 
         data_file.seek(0) #This resets datareader back to beginning of file for next ID
@@ -59,7 +59,7 @@ def get_data(rows, VDS_ID):
 
 
 def write_influxdb(VDS_ID, flow, occupancy, timestamp):
-    #Get metadata for writing to database as tags (metadata is returned in a named tuple)
+    #Get metadata for writing to database as tags (metadata is returned in a dictionary)
     metadata = get_metadata(VDS_ID)
 
     #Write flow and occupancy measurements to database
@@ -69,7 +69,7 @@ def write_influxdb(VDS_ID, flow, occupancy, timestamp):
 
 def get_metadata(identifier):
     #Declare metadata named tuple
-    metadata = namedtuple("metadata", "name type county_id city_id freeway_id freeway_dir lanes cal_pm abs_pm latitude longitude last_modified")
+    metadata = {"name": None, "type": None, "country_id": None, "city_id": None, "freeway_id": None, "freeway_dir": None, "lanes": None, "cal_pm": None, "abs_pm": None, "latitude": None, "longitude": None, "last_modified": None}
 
     #Parse XML file for metadata
     tree = ET.parse("vds_config.xml")
@@ -79,7 +79,20 @@ def get_metadata(identifier):
     #Finds correct VDS based upon identifier and stores to
     for vds in stations.findall('vds'):
         if identifier == vds.get('id'):
-            return (metadata(vds.get("name"), vds.get("type"), vds.get("county_id"), vds.get("city_id"), vds.get("freeway_id"), vds.get("freeway_dir"), vds.get("lanes"), vds.get("cal_pm"), vds.get("abs_pm"), vds.get("latitude"), vds.get("longitude"), vds.get("last_modified"))) #Return metadata as named tuple
+            metadata["name"] = vds.get("name")
+            metadata["type"] = vds.get("type")
+            metadata["county_id"] = vds.get("county_id")
+            metadata["city_id"] = vds.get("city_id")
+            metadata["freeway_id"] = vds.get("freeway_id")
+            metadata["freeway_dir"] = vds.get("freeway_dir")
+            metadata["lanes"] = vds.get("lanes")
+            metadata["cal_pm"] = vds.get("cal_pm")
+            metadata["abs_pm"] = vds.get("abs_pm")
+            metadata["latitude"] = vds.get("latitude")
+            metadata["longitude"] = vds.get("longitude")
+            metadata["last_modified"] = vds.get("last_modified")
+            return metadata
+
 
 
 def write_point(data_type, identifier, metadata_tags, value, timestamp):
@@ -91,18 +104,18 @@ def write_point(data_type, identifier, metadata_tags, value, timestamp):
             "measurement": data_type,
             "tags": {
                 "ID": identifier,
-                "name": metadata_tags.name,
-                "type": metadata_tags.type,
-                "county_id": metadata_tags.county_id,
-                "city_id": metadata_tags.city_id,
-                "freeway_id": metadata_tags.freeway_id,
-                "freeway_dir": metadata_tags.freeway_dir,
-                "lanes": metadata_tags.lanes,
-                "cal_pm": metadata_tags.cal_pm,
-                "abs_pm": metadata_tags.abs_pm,
-                "latitude": metadata_tags.latitude,
-                "longitude": metadata_tags.longitude,
-                "last_modified": metadata_tags.last_modified
+                "name": metadata_tags["name"],
+                "type": metadata_tags["type"],
+                "county_id": metadata_tags["county_id"],
+                "city_id": metadata_tags["city_id"],
+                "freeway_id": metadata_tags["freeway_id"],
+                "freeway_dir": metadata_tags["freeway_dir"],
+                "lanes": metadata_tags["lanes"],
+                "cal_pm": metadata_tags["cal_pm"],
+                "abs_pm": metadata_tags["abs_pm"],
+                "latitude": metadata_tags["latitude"],
+                "longitude": metadata_tags["longitude"],
+                "last_modified": metadata_tags["last_modified"]
             },
             "time": timestamp,
             "fields": {
