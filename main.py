@@ -1,6 +1,6 @@
 import sys
 from ftplib import FTP #for working with FTP server
-import os.path #error checking if file was downloaded
+import arrow # For formatting the time format
 import csv
 import xml.etree.ElementTree as ET #For reading XML file for metadata
 from collections import namedtuple #For returning the metadata from the XML (get_metadata() function) to the write_influxdb() function
@@ -27,7 +27,8 @@ def main(argv):
     #Open raw data file and get data
     data_file = open(filename, "r")
     datareader = csv.reader(data_file) #Using CSV API to read file
-    time = format_timestamp(''.join(next(datareader))) #Gets time from file in a list, which is then converted to a string, and manipulated to match timeseries for format
+    timestamp = ''.join(next(datareader)) #Gets time from file in a list, which is then converted to a string
+    iso_timestamp = arrow.get(timestamp, "MM/DD/YYYY HH:mm:ss").replace(tzinfo="US/Pacific") # Converts timestamp provided in file to iso time format and in UTC time
 
     # Get data (flow and occupancy) from file.
     for ID in IDs:
@@ -37,7 +38,7 @@ def main(argv):
             error_log("Data for %s could not be found. Will not be written to database." % (ID))
 
         if flow_data and occupancy_data: #Checks to see if data was indeed received
-            write_influxdb(ID, flow_data, occupancy_data, time) #Passes raw flow and occupancy values to write_influxdb() function (along with time) for writing to database.
+            write_influxdb(ID, flow_data, occupancy_data, iso_timestamp.timestamp) #Passes raw flow and occupancy values to write_influxdb() function (along with timestamp in int form) for writing to database.
 
         data_file.seek(0) #This resets datareader back to beginning of file for next ID
 
@@ -55,23 +56,6 @@ def get_data(rows, VDS_ID):
 
     #Returns values as tuple
     return flow, occupancy
-
-
-
-def format_timestamp(timestamp):
-    """
-    Format provided: 06/15/2017 17:52:30
-    Format wanted: 2017-06-15T17:52:30Z
-    """
-    #Break string into pieces for concatenating
-    hourminsec = timestamp[11:]
-    month = timestamp[0:2]
-    day = timestamp[3:5]
-    year = timestamp[6:10]
-
-    #Concatenate strings into timeseries format and return final formatted string
-    formatted = "%s-%s-%sT%sZ" % (year, month, day, hourminsec)
-    return formatted
 
 
 def write_influxdb(VDS_ID, flow, occupancy, timestamp):
@@ -98,7 +82,7 @@ def get_metadata(identifier):
             return (metadata(vds.get("name"), vds.get("type"), vds.get("county_id"), vds.get("city_id"), vds.get("freeway_id"), vds.get("freeway_dir"), vds.get("lanes"), vds.get("cal_pm"), vds.get("abs_pm"), vds.get("latitude"), vds.get("longitude"), vds.get("last_modified"))) #Return metadata as named tuple
 
 
-def write_point(data_type, identifier, metadata_tags, value, timeseries):
+def write_point(data_type, identifier, metadata_tags, value, timestamp):
     # http://influxdb-python.readthedocs.io/en/latest/include-readme.html#documentation
     # Creating json body for measurement.
 
@@ -120,7 +104,7 @@ def write_point(data_type, identifier, metadata_tags, value, timeseries):
                 "longitude": metadata_tags.longitude,
                 "last_modified": metadata_tags.last_modified
             },
-            "time": timeseries,
+            "time": timestamp,
             "fields": {
                 "value": value
             }
