@@ -11,6 +11,8 @@ def main(argv):
     filename = "30sec_latest.txt"
     IDs = ["1108498", "1108719", "1123087", "1123086", "1108452", "1118544", "1125911", "1123072", "1123081", "1123064"]
     #VDS IDs have been placed in code for ease of use; however, code can be altered to have IDs passed as arguments or via file.
+    flow_data = None
+    occupancy_data = None
 
     #Establish FTP connection and get necessary file
     try:
@@ -19,7 +21,7 @@ def main(argv):
         ftp.cwd("D11/Data/30sec")  # This is to work with District 11's 30 second raw data
         ftp.retrbinary("RETR " + filename, open(filename, "wb").write)
         ftp.quit()
-    except:
+    except:  #TODO: Add specific exceptions for each type of error (see ftplib). Can also do this for other exceptions.
         error_log("FTP Error. Please make sure you entered the username and password for the FTP server as arguments and are able to connect to the server. Exited script")
         sys.exit(1)
 
@@ -34,10 +36,9 @@ def main(argv):
         try:
             flow_data, occupancy_data = get_data(datareader, ID)
         except:
-            flow_data = occupancy_data = -99 # Junk values to prove data was not received
             error_log("Data for %s could not be found. Will not be written to database." % (ID))
 
-        if flow_data != -99 or occupancy_data != -99: #Checks to see if data was indeed received
+        if flow_data and occupancy_data: #Checks to see if data was indeed received
             write_influxdb(ID, flow_data, occupancy_data, iso_timestamp.timestamp) #Passes raw flow and occupancy values to write_influxdb() function (along with timestamp in int form) for writing to database.
 
         data_file.seek(0) #This resets datareader back to beginning of file for next ID
