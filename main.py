@@ -1,15 +1,15 @@
 import sys
 from ftplib import FTP #for working with FTP server
 import arrow # For formatting the time format
-import csv
+import pandas as pd
 import xml.etree.ElementTree as ET #For reading XML file for metadata
 from influxdb import InfluxDBClient #For writing to influxdb database
 
 
 def main(argv):
     #Declare variables
-    filename = "30sec_latest.txt"
-    IDs = ["1108498", "1108719", "1123087", "1123086", "1108452", "1118544", "1125911", "1123072", "1123081", "1123064"]
+    filename = "5minagg_latest.txt" # Altered to work with 5 minute aggregate data
+    IDs = [1108498, 1108719, 1123087, 1123086, 1108452, 1118544, 1125911, 1123072, 1123081, 1123064]
     #VDS IDs have been placed in code for ease of use; however, code can be altered to have IDs passed as arguments or via file.
     flow_data = None
     occupancy_data = None
@@ -18,42 +18,41 @@ def main(argv):
     try:
         ftp = FTP("pems.dot.ca.gov")
         ftp.login(argv[0], argv[1])
-        ftp.cwd("D11/Data/30sec")  # This is to work with District 11's 30 second raw data
+        ftp.cwd("D11/Data/5min")  # This is to work with District 11's 5 minute raw data
         ftp.retrbinary("RETR " + filename, open(filename, "wb").write)
         ftp.quit()
     except:  #TODO: Add specific exceptions for each type of error (see ftplib). Can also do this for other exceptions.
         error_log("FTP Error. Please make sure you entered the username and password for the FTP server as arguments and are able to connect to the server. Exited script")
         sys.exit(1)
 
-    #Open raw data file and get data
-    data_file = open(filename, "r")
-    datareader = csv.reader(data_file) #Using CSV API to read file
-    timestamp = ''.join(next(datareader)) #Gets time from file in a list, which is then converted to a string
+    #Open raw data file and timestamp
+    with open(filename, "r") as data_file:
+        timestamp = data_file.readline()
     iso_timestamp = arrow.get(timestamp, "MM/DD/YYYY HH:mm:ss").replace(tzinfo="US/Pacific") # Converts timestamp provided in file to iso time format and in UTC time
+
+    #Parse data file using Pandas
+    df = pd.read_csv("5minagg_latest.txt", skiprows = 1, header = None) # Parses data into pandas dataframe. Skips first line (the timestamp).
+    df.columns = ["VDS_ID", "FLOW", "OCCUPANCY", "SPEED", "VMT", "VHT", "Q", "TRAVEL_TIME", "DELAY", "NUM_SAMPLES", "PCT_OBSERVED"] #Renames headers for the columns. This is based off of provided documentation.
+    df = df.set_index("VDS_ID") #Sets VDS_ID to index for efficient use
 
     # Get data (flow and occupancy) from file.
     for ID in IDs:
         try:
-            flow_data, occupancy_data = get_data(datareader, ID)
+            flow_data, occupancy_data = get_data(df, ID)
         except:
             error_log("Data for %s could not be found. Will not be written to database." % (ID))
 
         if flow_data and occupancy_data: #Checks to see if data was indeed received
             write_influxdb(ID, flow_data, occupancy_data, iso_timestamp.timestamp) #Passes raw flow and occupancy values to write_influxdb() function (along with timestamp in int form) for writing to database.
 
-        data_file.seek(0) #This resets datareader back to beginning of file for next ID
-
     #Close connection with data file
     data_file.close()
 
 
-def get_data(rows, VDS_ID):
-    #Traverse until correct line is found.
-    for row in rows:
-        if VDS_ID in row: #checks to see if row is correct
-            #Gets flow and occupancy values. Typecasted for use when writing data.
-            flow = float(row[3])
-            occupancy = float(row[4])
+def get_data(data_df, VDS_ID):
+    # Get the flow and occupancy for the specific VDS_ID using Pandas API
+    flow = data_df.loc[VDS_ID].loc["FLOW"]
+    occupancy = data_df.loc[VDS_ID].loc["OCCUPANCY"]
 
     #Returns values as tuple
     return flow, occupancy
@@ -63,7 +62,7 @@ def write_influxdb(VDS_ID, flow, occupancy, timestamp):
     #Get metadata for writing to database as tags (metadata is returned in a dictionary)
     metadata = get_metadata(VDS_ID)
 
-    #Write flow and occupancy measurements to database
+    #Write flow and occupancy measurements to database.
     write_point("flow", VDS_ID, metadata, flow, timestamp)
     write_point("occupancy", VDS_ID, metadata, occupancy, timestamp)
 
@@ -132,7 +131,7 @@ def write_point(data_type, identifier, metadata_tags, value, timestamp):
 
 def error_log(error):
     with open("error.log", "a") as file:
-        file.write(error)
+        file.write(error + "\n")
 
 #Executes from here
 if __name__ == "__main__":
