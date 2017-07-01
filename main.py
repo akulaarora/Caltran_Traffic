@@ -9,7 +9,7 @@ from influxdb import InfluxDBClient #For writing to influxdb database
 def main(argv):
     #Declare variables
     filename = "5minagg_latest.txt" # Altered to work with 5 minute aggregate data
-    IDs = [1108498, 1108719, 1123087, 1123086, 1108452, 1118544, 1125911, 1123072, 1123081, 1123064]
+    IDs = ["1108498", "1108719", "1123087", "1123086", "1108452", "1118544", "1125911", "1123072", "1123081", "1123064"]
     #VDS IDs have been placed in code for ease of use; however, code can be altered to have IDs passed as arguments or via file.
     flow_data = None
     occupancy_data = None
@@ -38,7 +38,7 @@ def main(argv):
     # Get data (flow and occupancy) from file.
     for ID in IDs:
         try:
-            flow_data, occupancy_data = get_data(df, ID)
+            flow_data, occupancy_data = get_data(df, int(ID)) #Typecasts to integer since that is how the dataframe has the data stored.
         except:
             error_log("Data for %s could not be found. Will not be written to database." % (ID))
 
@@ -68,7 +68,7 @@ def write_influxdb(VDS_ID, flow, occupancy, timestamp):
 
 
 def get_metadata(identifier):
-    #Declare metadata named tuple
+    #Declare metadata dictionary
     metadata = {"name": None, "type": None, "country_id": None, "city_id": None, "freeway_id": None, "freeway_dir": None, "lanes": None, "cal_pm": None, "abs_pm": None, "latitude": None, "longitude": None, "last_modified": None}
 
     #Parse XML file for metadata
@@ -76,7 +76,7 @@ def get_metadata(identifier):
     root = tree.getroot()
     stations = root[11][1] #Gets detector_stations child tag in XML file for District 11
 
-    #Finds correct VDS based upon identifier and stores to
+    #Finds correct VDS based upon identifier and stores to dictionary
     for vds in stations.findall('vds'):
         if identifier == vds.get('id'):
             metadata["name"] = vds.get("name")
