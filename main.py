@@ -1,6 +1,5 @@
-#!/home/akul/anaconda3/bin/python3
-
 import sys
+import gwd  # Watchdog timer
 from ftplib import FTP  # For communicating with FTP server
 import arrow  # For formatting the time format
 import pandas as pd  # For reading and interpreting the data
@@ -9,12 +8,14 @@ from influxdb import InfluxDBClient  # For writing to influxdb database
 
 
 def main(argv):
-    # Declare variables
+    # Declare static variables
     filename = "5minagg_latest.txt"  # Altered to work with 5 minute aggregate data
     # VDS IDs have been placed in code for ease of use; however, code can be altered to have IDs passed as arguments or via file.
     IDs = ["1108498", "1108719", "1123087", "1123086", "1108452", "1118544", "1125911", "1123072", "1123081", "1123064"]
-    flow_data = None
-    occupancy_data = None
+
+    # Initiate watchdog
+    wd_name = "ucsd.caltrans"
+    gwd.auth(wd_name)
 
     # Establish FTP connection and get necessary file
     try:
@@ -40,14 +41,21 @@ def main(argv):
     df = df.set_index("VDS_ID")  #Sets VDS_ID to index for efficient use
 
     # Get data (flow and occupancy) from file and write to influxdb for all the IDs.
+    error_flag = False
     for ID in IDs:
         try:
             flow_data, occupancy_data = get_data(df, int(ID))
         except:
             error_log("Data for %s could not be found. Will not be written to database." % (ID))
+            flow_data, occupancy_data = None
 
-        if flow_data and occupancy_data:
+        if flow_data and occupancy_data: # Checks to see if data was received
             write_influxdb(ID, flow_data, occupancy_data, iso_timestamp.timestamp)
+        else:
+            gwd.fault(wd_name, "No data found at {0}".format(ID))  # Notify that there is a fault
+            error_flag = True
+    if not error_flag:  # Will run if error flag is false (positive). This means that data for all the IDs was found.
+        gwd.kick(wd_name, 600)  # Notify that this is running correctly. This signal is valid for 600 seconds.
 
 
 def get_data(data_df, VDS_ID):
@@ -86,7 +94,7 @@ def get_metadata(identifier):
     # Parse XML file for metadata
     tree = ET.parse("vds_config.xml")
     root = tree.getroot()
-    stations = root[11][1] # Gets detector_stations child tag in XML file for District 11
+    stations = root[11][1]  # Gets detector_stations child tag in XML file for District 11
 
     # Finds correct VDS based upon identifier and stores its metadata to dictionary
     for vds in stations.findall('vds'):
@@ -104,7 +112,6 @@ def get_metadata(identifier):
             metadata["longitude"] = vds.get("longitude")
             metadata["last_modified"] = vds.get("last_modified")
             return metadata
-
 
 
 def write_point(data_type, identifier, metadata_tags, value, timestamp):
@@ -148,6 +155,7 @@ def error_log(error):
     """For logging errors that occur to the log file."""
     with open("error.log", "a") as file:
         file.write("%s\n" % (error))
+
 
 #Executes from here
 if __name__ == "__main__":
