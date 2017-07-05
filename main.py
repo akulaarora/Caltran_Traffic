@@ -97,8 +97,8 @@ def get_metadata(identifier):
     stations = root[11][1]  # Gets detector_stations child tag in XML file for District 11
 
     # Finds correct VDS based upon identifier and stores its metadata to dictionary
-    for vds in stations.findall('vds'):
-        if identifier == vds.get('id'):
+    for vds in stations.findall("vds"):
+        if identifier == vds.get("id"):
             metadata["name"] = vds.get("name")
             metadata["type"] = vds.get("type")
             metadata["county_id"] = vds.get("county_id")
@@ -157,7 +157,7 @@ def error_log(error):
         file.write("%s\n" % (error))
 
 
-#Executes from here
+# Executes from here
 if __name__ == "__main__":
     main(sys.argv[1:])
 
