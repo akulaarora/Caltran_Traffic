@@ -15,9 +15,13 @@ https://docs.influxdata.com/influxdb/v1.2/
 ### Dependencies
 
 The following dependencies must be installed for Python using pip: 
+
 https://github.com/immesys/wd
+
 http://arrow.readthedocs.io/en/latest/
+
 https://pandas.pydata.org/pandas-docs/stable/
+
 https://github.com/influxdata/influxdb-python
 
 TO BE CONTINUED... 
