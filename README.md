@@ -19,7 +19,7 @@ _Version_: Tested using Python 3.6 with anaconda3.
 
 The following dependencies/libraries must be installed for Python using pip:
 
-https://github.com/immesys/wd. You will also need to create the authentication token in .wd_token following the instructions in wd's documentation. The token set in the code is "ucsd.caltrans", however, this can be modified to one's choosing.
+https://github.com/immesys/wd
 
 http://arrow.readthedocs.io/en/latest/
 
@@ -51,13 +51,13 @@ _Error logging_: This script will create an error.log file for any errors that a
 
 Please note that main.py has the following values that can be modified:
 
-1. _Time length of data (for lack of better words)_ - 5 minutes
+1. _Data time length_ - 5 minutes (aggregate). The time granularity is 30 seconds. Can be altered to use 30 seconds raw data rather than 5 minute aggregate.
 
-2. _Watchdog name_ - ucsd.caltrans
+3. _Watchdog name_ - ucsd.caltrans
 
-3. _District_ - District 11 (\*must be altered in vds_discovery.py as well, if using)
+4. _District_ - District 11 (\*must be altered in vds_discovery.py as well, if using)
 
-4. _Values being read_ - flow, occupancy
+5. _Values being read_ - flow, occupancy
 
 ### vds_discovery.py
 
