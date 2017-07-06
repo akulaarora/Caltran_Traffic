@@ -39,7 +39,7 @@ def main(argv):
 
 def distance(loc1, loc2):
     """Calculate distance between the entered coordinates and the coordinates of the VDS."""
-    return math.sqrt((loc2[0]-loc1[0])**2 + (loc2[0]-loc1[0])**2) # sqrt((x2-x1)^2+(y2-y1)^2)
+    return math.sqrt((loc2[0]-loc1[0])**2 + (loc2[1]-loc1[1])**2)  # sqrt((x2-x1)^2+(y2-y1)^2)
 
 
 # Executes from here
