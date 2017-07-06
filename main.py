@@ -1,4 +1,5 @@
 import sys
+import os.path
 import gwd  # Watchdog timer
 from ftplib import FTP  # For communicating with FTP server
 import arrow  # For formatting the time format
@@ -10,8 +11,9 @@ from influxdb import InfluxDBClient  # For writing to influxdb database
 def main(argv):
     # Declare static variables
     filename = "5minagg_latest.txt"  # Altered to work with 5 minute aggregate data
-    # VDS IDs have been placed in code for ease of use; however, code can be altered to have IDs passed as arguments or via file.
-    IDs = ["1108498", "1108719", "1123087", "1123086", "1108452", "1118544", "1125911", "1123072", "1123081", "1123064"]
+
+    # Get VDS IDs
+    IDs = get_ids()
 
     # Initiate watchdog
     wd_name = "ucsd.caltrans"
@@ -56,6 +58,21 @@ def main(argv):
             error_flag = True
     if not error_flag:  # Will run if error flag is false (positive). This means that data for all the IDs was found.
         gwd.kick(wd_name, 600)  # Notify that this is running correctly. This signal is valid for 600 seconds.
+
+
+def get_ids():
+    """
+    Returns VDS IDs that's data will be extracted from the file and posted to the influxdb server.
+    To use the IDs.txt file method, use the vds_discovery.py script or enter specified IDs into the file manually (use line breaks).
+    """
+    if os.path.isfile("IDs.txt"): # If IDs.txt exists, use the IDs in the file
+        with open("IDs.txt") as IDs_file:
+            IDs = IDs_file.readlines()  # Read all IDs into list
+            IDs = [ID.strip() for ID in IDs]  # Removes whitespace, notably the newline
+    else: # Otherwise use hardcoded pre-determined IDs
+        IDs = ["1108498", "1108719", "1123087", "1123086", "1108452", "1118544", "1125911", "1123072", "1123081",
+               "1123064"]
+    return IDs
 
 
 def get_data(data_df, VDS_ID):
@@ -146,8 +163,11 @@ def write_point(data_type, identifier, metadata_tags, value, timestamp):
     ]
 
     # Write to database
-    client = InfluxDBClient('localhost', 8086, 'root', 'root', 'caltran_traffic')  # caltran_traffic is given name of database
-    client.write_points(data_point)
+    try:
+        client = InfluxDBClient('localhost', 8086, 'root', 'root', 'caltran_traffic')  # caltran_traffic is given name of database
+        client.write_points(data_point)
+    except:
+        error_log("Could not write data for {} due to error with InfluxDB database".format(identifier))
 
 
 def error_log(error):
