@@ -21,11 +21,21 @@ Have the following dependencies installed using pip:
 
 The following dependencies must be installed for Python using pip:
 
+<<<<<<< HEAD
+=======
+The following dependencies must be installed for Python using pip: 
+
+>>>>>>> origin/dev
 https://github.com/immesys/wd
 
 http://arrow.readthedocs.io/en/latest/
 
 https://pandas.pydata.org/pandas-docs/stable/
+<<<<<<< HEAD
+=======
+
+https://github.com/influxdata/influxdb-python
+>>>>>>> origin/dev
 
 https://github.com/influxdata/influxdb-python
 
