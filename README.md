@@ -25,6 +25,9 @@ The following dependencies must be installed for Python using pip:
 =======
 The following dependencies must be installed for Python using pip: 
 
+<<<<<<< HEAD
+>>>>>>> origin/dev
+=======
 >>>>>>> origin/dev
 https://github.com/immesys/wd
 
@@ -32,7 +35,10 @@ http://arrow.readthedocs.io/en/latest/
 
 https://pandas.pydata.org/pandas-docs/stable/
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> origin/dev
 
 https://github.com/influxdata/influxdb-python
 >>>>>>> origin/dev
