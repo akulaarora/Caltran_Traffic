@@ -165,6 +165,7 @@ def write_point(data_type, identifier, metadata_tags, value, timestamp):
     # Write to database
     try:
         client = InfluxDBClient('localhost', 8086, 'root', 'root', 'caltran_traffic')  # caltran_traffic is given name of database
+        client.create_database("caltran_traffic")  # Will create database if it does not exist. Otherwise, does not modify database.
         client.write_points(data_point)
     except:
         error_log("Could not write data for {} due to error with InfluxDB database".format(identifier))
