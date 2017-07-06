@@ -63,4 +63,8 @@ Please note that main.py has the following values that can be modified:
 
 This is an interactive script that takes as input the latitude and longitude of a specific location as well as the radius from that location and creates an "IDs.txt" file, which will contain the VDS IDs within the radius specified of the location.
 
-The purpose of this is to collect data for a specific area. _Please note that this is currently set to work with locations within District 11._
+The purpose of this is to collect data for a specific area. _Please note that this is currently set to work with locations within District 11._ The district being used should be kept consistent that of main.py.
+
+## Final Notes
+
+This project is still a work in progress and more may be added to it. This is not the final version as various parts of this project may be altered, most notably the server that this data is being written to.
