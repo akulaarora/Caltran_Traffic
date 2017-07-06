@@ -1,24 +1,25 @@
 # Caltran_Traffic
 
-This project is intended to read the 5-minute flow and occupancy data from the California Transit dataset for writing traffic timeseries data to a database.
+This project is intended to read the data from the California Transit dataset for writing traffic timeseries data to a database. This is was created for use by UC San Diego and was created by Akul Arora and Jason Koh.
 
-Please note that this is currently writing data to an Influx database, however, this may change.
+Please note that the database being used to store the timeseries data is currently InfluxDB, however, this may change. 
 
 ## Setup
 
-__Note the following__: In order to use this project, it is required that you have access to the Caltran FTP server.
+_Note the following_: In order to use this project, it is required that you have access to the Caltran FTP server.
+More information can be found on the [Caltran site](pems.dot.ca.gov). You can also read more about the traffic data from here.
 
-More information can be found here: pems.dot.ca.gov
-
-
-To write data to the database, an Influx database must be setup.
-main.py is currently set to writing to localhost using the user pre-created database "caltran_traffic".
-
+To write data to the database, an Influx server must be setup. 
 To learn how to use InfluxDB, look here: https://docs.influxdata.com/influxdb/v1.2/
 
-Please have Python 3.6 installed.
-The following dependencies must be installed for Python using pip: 
-https://github.com/immesys/wd
+To use: download the python files and place in a folder that also contains the vds_config.xml file. The XML file is for the python scripts to get metadata for the VDSs.
+
+### Python and Dependencies
+_Version_: Tested using Python 3.6 with anaconda3.
+
+The following dependencies/libraries must be installed for Python using pip:
+
+https://github.com/immesys/wd. You will also need to create the authentication token in .wd_token following the instructions in wd's documentation. The token set in the code is "ucsd.caltrans", however, this can be modified to one's choosing.
 
 http://arrow.readthedocs.io/en/latest/
 
@@ -26,10 +27,40 @@ https://pandas.pydata.org/pandas-docs/stable/
 
 https://github.com/influxdata/influxdb-python
 
-https://github.com/influxdata/influxdb-python
-
 ## Usage
 
-Parameters
+### main.py
 
-Cron job
+This will read the data from the Caltran FTP server and write to the Influx database for specified Vehicle Detector Stations (VDSs) based upon their IDs (more information on this is in the "Other Notes" section). It is the core of this project.
+
+Use the following command to run main.py. Sudo priviliges are not required:
+```
+$ python main.py <caltran_username> < caltran_password>
+```
+
+To run this as a cronjob, add the following to crontab. Sudo priviliges are not required for cron:
+```
+*/5 *  *   *   *     cd <directory_containing_files> && python main.py <caltran_username> <caltran_password>
+```
+
+__Other Notes__:
+
+_VDS IDs used_: By default, main.py will use the VDS IDs contained in the IDs.txt file (separated by line breaks). If this file does not exist in the same directory as main.py, main.py will resort to a set of VDS IDs that are contained in the code. IDs.txt can be manually created using user-specified IDs, or generated using vds_discovery.py (see below).
+
+_Error logging_: This script will create an error.log file for any errors that appear during runtime. 
+
+Please note that main.py has the following values that can be modified:
+
+1. _Time length of data (for lack of better words)_ - 5 minutes
+
+2. _Watchdog name_ - ucsd.caltrans
+
+3. _District_ - District 11 (\*must be altered in vds_discovery.py as well, if using)
+
+4. _Values being read_ - flow, occupancy
+
+### vds_discovery.py
+
+This is an interactive script that takes as input the latitude and longitude of a specific location as well as the radius from that location and creates an "IDs.txt" file, which will contain the VDS IDs within the radius specified of the location.
+
+The purpose of this is to collect data for a specific area. _Please note that this is currently set to work with locations within District 11._
