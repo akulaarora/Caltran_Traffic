@@ -11,7 +11,7 @@ from influxdb import InfluxDBClient  # For writing to influxdb database
 def main(argv):
     # Declare static variables
     filename = "5minagg_latest.txt"  # Altered to work with 5 minute aggregate data
-
+    data_types = ["FLOW", "OCCUPANCY", "SPEED", "VMT", "VHT", "DELAY"] # Alter this and dict to modify data types used.
     # Get VDS IDs
     IDs = get_ids()
 
@@ -46,14 +46,14 @@ def main(argv):
     error_flag = False
     for ID in IDs:
         try:
-            flow_data, occupancy_data = get_data(df, int(ID))
+            data = get_data(df, data_types, int(ID))
         except:
             error_log("Data for %s could not be found. Will not be written to database." % (ID))
-            flow_data, occupancy_data = None
+            data = {"FLOW": None, "OCCUPANCY": None, "SPEED": None, "VMT": None, "VHT": None, "DELAY": None}
 
-        if flow_data and occupancy_data: # Checks to see if data was received
-            write_influxdb(ID, flow_data, occupancy_data, iso_timestamp.timestamp)
-        else:
+        if data:  # Checks to see if any data was received
+            write_influxdb(ID, data, data_types, iso_timestamp.timestamp)
+        else:  # Watchdog
             gwd.fault(wd_name, "No data found at {0}".format(ID))  # Notify that there is a fault
             error_flag = True
     if not error_flag:  # Will run if error flag is false (positive). This means that data for all the IDs was found.
@@ -75,32 +75,38 @@ def get_ids():
     return IDs
 
 
-def get_data(data_df, VDS_ID):
+def get_data(data_df, data_types, VDS_ID):
     """
-    Returns the flow and occupancy for a specified VDS (based upon ID passed) using the passed Pandas Dataframe.
+    Returns the data for a specified VDS (based upon ID passed) using the passed Pandas Dataframe.
     Note that VDS_ID must be passed as an integer variable (typecasted from string).
     """
-    # Get the flow and occupancy
-    flow = data_df.loc[VDS_ID].loc["FLOW"]
-    occupancy = data_df.loc[VDS_ID].loc["OCCUPANCY"]
+    # Declare data dictionary. Must match data_types.
+    data = {"FLOW": None, "OCCUPANCY": None, "SPEED": None, "VMT": None, "VHT": None, "DELAY": None}
+
+    # Get data for each data type
+    for data_type in data_types:
+        if data[data_type]:  # Checks if data type was found
+            data[data_type] = data_df.loc[VDS_ID].loc[data_type]
+        else:  # Writes error if a value was not found for a specific VDS
+            error_log("Could not retrieve data type %s's value for VDS %d. This is a common issue." % (data_type, VDS_ID))
 
     # Return the values
-    return flow, occupancy
+    return data
 
 
-def write_influxdb(VDS_ID, flow, occupancy, timestamp):
+def write_influxdb(VDS_ID, data, data_types, timestamp):
     """
     Gets metadata and writes data (along with metadata) to influxdb database.
-    Data values being stored are currently only flow and occupancy.
+    Data values being stored is based upon data_type dictionary.
     Gets metadata using get_metadata() function.
     Writes each data value using write_point() function.   
     """
     # Get metadata for writing to database as tags
     metadata = get_metadata(VDS_ID)
 
-    # Write flow and occupancy measurements to database.
-    write_point("flow", VDS_ID, metadata, flow, timestamp)
-    write_point("occupancy", VDS_ID, metadata, occupancy, timestamp)
+    # Write measurements to database.
+    for data_type in data_types:
+        write_point(data_type, VDS_ID, metadata, data[data_type], timestamp)
 
 
 def get_metadata(identifier):
