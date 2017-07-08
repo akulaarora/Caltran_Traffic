@@ -57,7 +57,7 @@ Please note that main.py has the following values that can be modified:
 
 4. _District_ - District 11 (\*must be altered in vds_discovery.py as well, if using)
 
-5. _Values being read_ - flow, occupancy
+5. _Values being read_ - flow, occupancy, speed, VMT, VHT, delay
 
 ### vds_discovery.py
 
