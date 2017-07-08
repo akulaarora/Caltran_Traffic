@@ -85,10 +85,7 @@ def get_data(data_df, data_types, VDS_ID):
 
     # Get data for each data type
     for data_type in data_types:
-        if data[data_type]:  # Checks if data type was found
             data[data_type] = data_df.loc[VDS_ID].loc[data_type]
-        else:  # Writes error if a value was not found for a specific VDS
-            error_log("Could not retrieve data type %s's value for VDS %d. This is a common issue." % (data_type, VDS_ID))
 
     # Return the values
     return data
@@ -106,7 +103,10 @@ def write_influxdb(VDS_ID, data, data_types, timestamp):
 
     # Write measurements to database.
     for data_type in data_types:
-        write_point(data_type, VDS_ID, metadata, data[data_type], timestamp)
+        if data[data_type]:  # Checks if data type was found
+            write_point(data_type, VDS_ID, metadata, data[data_type], timestamp)
+        else:  # Writes error if a value was not found for a specific VDS
+            error_log("Could not retrieve data type %s's value for VDS %s." % (data_type, VDS_ID))
 
 
 def get_metadata(identifier):
