@@ -61,9 +61,13 @@ Please note that main.py has the following values that can be modified:
 
 ### vds_discovery.py
 
-This is an interactive script that takes as input the latitude and longitude of a specific location as well as the radius from that location and creates an "IDs.txt" file, which will contain the VDS IDs within the radius specified of the location.
+This is an interactive script that takes as input the latitude and longitude of a specific location as well as the radius from that location and outputs the found IDs to files.
 
-The purpose of this is to collect data for a specific area. _Please note that this is currently set to work with locations within District 11._ The district being used should be kept consistent that of main.py.
+This script creates an "IDs.txt" file, which will contain the Mainline/HOV VDS IDs within the radius specified of the location. It will also create an "otherIDs.txt" file that will contain all other IDs within the radius of the location. IDs are separated by line breaks (newline).
+
+The purpose of this is to collect data for a specific area through main.py, which will read the IDs.txt file. _Please note that this is currently set to work with locations within District 11._ The district being used should be kept consistent with that of main.py.
+
+For UC San Diego, the location is 32.879956, -117.233928 and I am using a radius of 0.03 to get approximately two times the size of UCSD.
 
 ## Final Notes
 
