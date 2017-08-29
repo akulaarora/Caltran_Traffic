@@ -17,7 +17,6 @@ def main(argv):
 
     # Initiate watchdog
     wd_name = "ucsd.caltrans"
-    gwd.auth(wd_name)
 
     # Establish FTP connection and get necessary file
     try:
