@@ -1,6 +1,6 @@
 # Caltran_Traffic
 
-This project is intended to read the data from the California Transit dataset for writing traffic timeseries data to a database. This is was created for use by UC San Diego and was created by Akul Arora and Jason Koh.
+This project is intended to read the data from the California Transit dataset for writing traffic timeseries data to a database. This was created for use by UC San Diego and was created by Akul Arora and Jason Koh.
 
 Please note that the database being used to store the timeseries data is currently InfluxDB, however, this may change. 
 
